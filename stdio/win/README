@@ -1,0 +1,162 @@
+Urse Adrian Dinu 331CC
+SO_STDIO Windows
+
+Organizare:
+Structura _so_file
+	HANDLE fd; - handle-ul asociat fisierului
+	char *buffer;
+	DWORD flag; - moduld e acces al fisierului
+	int bufpos; - pozitia in buffer
+	int cursor; - pozitia in fisier
+	int op; - ultima operatie efectuata
+	int eoflag; - flag care indica detectia EOF
+	int error;	- flag care indica daca s-a intalnim o eroare
+	int bytes_read; - cati octeti am citit ultima data
+	HANDLE pid; - procesul curent
+	HANDLE hThread; - thread-ul primar al procesului
+	pid, htread - folosite pt. procesul copil(popen)
+
+Consider ca tema este utila.
+
+Implementare
+Intregul enunt al temei este implementat.
+so_fopen:
+	Aloc memorie pt. o structura SO_FILE.
+	In cazul in care nu s-a putut aloca memorie, ies din program.
+	Setez modul de acces al fisierului, in functie de parametrul mode.
+	Deschid fisierul.
+	In cazul in care apelul CreateFile intoarce INVALID_HANDLE_VALUE,
+	atunci functia intoarce NULL.
+	Initializez campurile structurii.
+	Returnez structura creata.
+
+so_fclose:
+	Apelez functia so_fflush pentru a scrie ce a ramas in buffer.
+	Daca apelul intoarce -1, atunci returnze SO_EOF.
+	Inchid fisierul folosind CloseHandle pe handle-ul asociat.
+	Daca CloseHandle intoarce FALSE, atunci returnez SO_EOF.
+	Eliberez memoria pentru buffer si pentru structura SO_FILE.
+	Returnez 0.
+
+so_fflush:
+	Daca ultima operatie nu a fost una de scriere, atunci returnez 0.
+	Pentru a ma asigura ca scriu toti octetii din buffer, fac un
+	while, pana cand numarul de bytes scrisi este mai mare decat numarul de
+	elemente din buffer. Verific daca apelul WriteFile intoarce FALSE,
+	in acest caz returnez SO_EOF. Am folosit modelul functiei xwrite din 
+	laboratorul 2, task 3 - mcat.
+	Zeroizez buffer-ul, setez pozitia in buffer la 0.
+	Returnez 0.
+
+so_fseek:
+	Daca ultima operatie a fost una de citire, atunci invalidez buffer-ul
+	si setez pozitia in buffer 0.
+	Daca ultima operatie a fost una de scriere, apelez so_fflush pentru
+	a scrie in fisier continutul buffer-ului.
+	Apelez functia SetFilePointer pentru a seta pozitia cursorului.
+	In cazul in care apelul intoarce INVALID_SET_FILE_POINTER, atunci
+	returnez SO_EOF.
+	Setez noul cursor si returnez 0.
+
+so_fgetc:
+	Setez ultima operatie la una de citire.
+	Daca pozitia in buffer este 0(nu am facut nicio operatie de citire)
+	sau pozitia in buffer este egala cu numarul de octeti cititi(am citit toate
+	elementele din buffer), atunci incerc sa citesc 4096 bytes in buffer.
+		In cazul in care apelul functiei ReadFile intoarce false,
+		atunci setez flagul error la 1 si daca ultima eroare este
+		ERROR_BROKEN_PIPE setez si eoflag la 1.
+		Daca am citit 0 bytes, am ajuns la EOF si setez eoflag la 1.
+		Setez pozitia in buffer la 0 si bytes_read la numarul de octeti
+		cititi.
+		Folosesc bytes_read ca sa retin cat am citit ultima data
+		deoarece la testul huge_random, nu se pot citi 4096 de bytes.
+	Altfel incrementez pozitia in buffer si pozitia in fisier.
+	Intorc elementul citit.
+
+so_fread:
+	Intr-o bucla while citesc nmemb elemente de dimesiune size,
+	apeland pentru functia so_fgetc pentru ficare caracter.
+	In cazul in care, fgetc a intalnit EOF, atunci dau break pt.
+	a iesi din bucla.
+	In cazul in care, fgetc a generat o eroare, atunci returnez 0.
+	Pun in vectorul ptr pe pozitia curenta caracterul citit.
+	Returnez numarul de elemente citite.
+
+so_fputc:
+	Setez ultima operatie la una de scriere.
+	In cazul in care buffer-ul este plin, scriu tot continutul
+	acestuia in fisier. Pentru a ma asigura ca scriu toti octetii din buffer, 
+	fac un while, pana cand numarul de bytes scrisi este mai mare 
+	decat numarul de elemente din buffer. Verific daca apelul WriteFile
+	intoarce FALSE, in acest caz returnez SO_EOF. Am folosit modelul 
+	functiei xwrite din claboratorul 2, task 3 - mcat.
+	Altfel pun pe pozitia curenta in buffer, caracterul dat ca
+	parametru.
+	Incrementez pozitia in buffer si pozitia in fisier.
+	Returnez caracterul scris.
+
+so_fwrite:
+	Intr-o bucla while scriu nmemb elemente de dimesiune size,
+	apeland petnru functia so_fputc pentru ficare caracter.
+	In cazul in care, fputc a generat o eroare, atunci returnez 0.
+	Returnez numarul de elemente scrise.
+
+so_popen:
+	Aloc memorie pentru o structura so_file.
+	In cazul in care nu s-a putut aloca memorie, returnez NULL.
+	Construiesc comanda completa "cmd /C command" in variabila compcomm.
+	Zeroizez structurile SECURITY_ATTRIBUTES, STARTUPINFO si PROCESS_INFORMATION.
+	Creez un pipe intre capatul de citire si capatul de scriere,
+	pentru comunicarea intre procesul parinte si procesul copil.
+	In cazul in care apelul CreatePipe intoarce FALSE, eliberez memoria
+	alocata si returnez NULL.
+	In cazul in care type este "r", redirectez STDOUT-UL procesului
+	copil la capatul de scriere(Setez in structura STATRTUPINFO a copilului
+	hStdOutput la capatul de scriere).
+	Marchez ca nemostenibil capatul de pipe nefolosit(capatul de citire).
+	In cazul in care type este "w", redirectez STDIN-UL procesului
+	copil la capatul de citire(Setez in structura STATRTUPINFO a copilului
+	hStdInput la capatul de citire).
+	Marchez ca nemostenibil capatul de pipe nefolosit(capatul de scriere).
+	Creez procesul copil, folosind CreateProcess.
+	Daca apelul functiei CreateProcess intoarce FALSE, inchid capetele
+	pipe-ului, eliberez memoria si returnez NULL.
+	In cazul in care type este "r", inchid capatul de scriere si
+	setez handle-ul asociat structurii la capatul de citire.
+	Altfel, inchid capatul de citire si
+	setez handle-ul asociat structurii la capatul de scriere.
+	Aloc memorie pentru buffer-ul din structura.
+	In cazul in care nu s-a putut aloca memorie, returnez NULL.
+	Setez campurile structurii create.
+	Eliberez memoria si intorc structura creata.
+
+so_pclose:
+	Apelez functia so_fflush pentru a scrie ce a ramas in buffer.
+	In cazul in care fflush intoarce -1, eliberez memoria structurii stream
+	si intorc SO_EOF.
+	Inchid handle-ul asociat structurii.
+	In cazul in care CloseHandle intoarce FALSE, eliberez memoria structurii stream
+	si intorc SO_EOF.
+	Astept terminarea procesului.
+	In cazul in care WaitForSingleObject intoarce WAIT_FAILED, eliberez memoria structurii stream
+	si intorc SO_EOF.
+	Determin codul de erioare cu care s-a terminat procesul.
+	In cazul in care GetExitCodeProcess intoarce FALSE, eliberez memoria structurii stream
+	si intorc SO_EOF.
+	Inchid handle-ele asociate procesului (hProcess, hThread).
+	Eliberez memoria si returnez codul de eroare.
+
+Cum se compileaza ?
+	nmake (genereaza biblioteca dinamica so_stdio.dll)
+
+Bibliografie:
+	Laboratorul 1 - pentru makefile
+		comenzi pentru generarea bibliotecii dinamice
+	Laboratorul 2 - pentru operatiile I/O 
+		xwrite - task 3 - mcat 
+		xread - task 3 - mcat
+	Laboratorul 3 - pentru procese
+		RedirectHandle - task 2c (redirectare)
+		RunSimpleCommand - task 2a (creare procese)
+		

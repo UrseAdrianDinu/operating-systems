@@ -1,0 +1,157 @@
+Urse Adrian Dinu 331CC
+SO_STDIO Linux
+
+Organizare:
+Structura _so_file
+	int fd; -file descriptor-ul asociat fisierului
+	char *buffer;
+	int flag; - modul de acces al fisierului
+	int bufpos; - pozitia in buffer
+	int cursor; - pozitia in fisier
+	int op; - ultima operatie efectuata
+	int eoflag; - flag care indica detectia EOF
+	int error;	- flag care indica daca s-a intalnim o eroare
+	int bytes_read; - cati bytes am citit ultima data
+	int pid; - identificatorul procesului
+	pid - folositt pt.asteptarea procesului copil(popen)
+
+Consider ca tema este utila.
+
+Implementare
+Intregul enunt al temei este implementat.
+
+so_fopen:
+	Aloc memorie pt. o structura SO_FILE
+	In cazul in care nu s-a putut aloca memorie, ies din program.
+	Setez modul de acces al fisierului, in functie de parametrul mode.
+	Deschid fisierul.
+	In cazul in care apelul open intoarce o valoare negativa,
+	atunci functia intoarce NULL.
+	Initializez campurile structurii.
+	Returnez structura creata.
+
+so_fclose:
+	Apelez functia so_fflush pt. a scrie ce a ramas in buffer.
+	Daca apelul intoarce -1, atunci returnez SO_EOF.
+	Inchid fisierul folosind close pe fd-ul asociat.
+	Daca close intoarce o valoare negativa, atunci returnez SO_EOF.
+	Eliberez memoria pentru buffer si pentru structura SO_FILE.
+	Returnez 0.
+
+so_fflush:
+	Daca ultima operatie nu a fost una de scriere, atunci returnez 0.
+	Pentru a ma asigura ca scriu toti octetii din buffer, fac un
+	while, pana cand numarul de bytes scrisi este mai mare decat numarul de
+	elemente din buffer. Verific daca apelul write intoarce -1,
+	in acest caz returnez SO_EOF. Am folosit modelul functiei xwrite din 
+	laboratorul 2, task 3 - mcat.
+	Zeroizez buffer-ul, setez pozitia in buffer la 0.
+	Returnez 0.
+
+so_fseek:
+	Daca ultima operatie a fost una de citire, atunci invalidez buffer-ul
+	si setez pozitia in buffer 0.
+	Daca ultima operatie a fost una de scriere, apelez so_fflush pentru
+	a scrie in fisier continutul buffer-ului.
+	Apelez functia lseek pentru a seta pozitia cursorului.
+	In cazul in care apelul intoarce -1, atunci returnez SO_EOF.
+	Setez noul cursor si returnez 0.
+
+so_fgetc:
+	Setez ultima operatie la una de citire.
+	Daca pozitia in buffer este 0(nu am facut nicio operatie de citire)
+	sau pozitia in buffer este egala cu numarul de octeti cititi(am citit toate
+	elementele din buffer), atunci incerc sa citesc 4096 bytes in buffer.
+		In cazul in care apelul functiei read intoarce -1,
+		atunci setez flagul error la 1 si returnez SO_EOF.
+		Daca am citit 0 bytes, am ajuns la EOF si setez eoflag la 1.
+		Setez pozitia in buffer la 0 si bytes_read la numarul de octeti
+		cititi.
+		Folosesc bytes_read ca sa retin cat am citit ultima data
+		deoarece la testul huge_random, nu se pot citi 4096 de bytes.
+	Altfel incrementez pozitia in buffer si pozitia in fisier.
+	Intorc elementul citit.
+
+so_fread:
+	Intr-o bucla while citesc nmemb elemente de dimesiune size,
+	apeland petnru functia so_fgetc pentru ficare caracter.
+	In cazul in care, fgetc a intalnit EOF, atunci dau break pt.
+	a iesi din bucla.
+	In cazul in care, fgetc a generat o eroare, atunci returnez 0.
+	Pun in vectorul ptr pe pozitia curenta caracterul citit.
+	Returnez numarul de elemente citite.
+
+so_fputc:
+	Setez ultima operatie la una de scriere.
+	In cazul in care buffer-ul este plin, scriu tot continutul
+	acestuia in fisier. Pentru a ma asigura ca scriu toti octetii din buffer, 
+	fac un while, pana cand numarul de bytes scrisi este mai mare 
+	decat numarul de elemente din buffer. Verific daca apelul write
+	intoarce -1, in acest caz returnez SO_EOF. Am folosit modelul 
+	functiei xwrite din laboratorul 2, task 3 - mcat.
+    Setez pozitia in buffer la 0 si zeroizez buffer-ul.
+	Altfel pun pe pozitia curenta in buffer, caracterul dat ca
+	parametru.
+	Incrementez pozitia in buffer si pozitia in fisier.
+	Returnez caracterul scris.
+
+so_fwrite:
+	Intr-o bucla while scriu nmemb elemente de dimesiune size,
+	apeland functia so_fputc pentru ficare caracter.
+	In cazul in care, fputc a generat o eroare, atunci returnez 0.
+	Returnez numarul de elemente scrise.
+
+so_popen:
+	Aloc memorie pentru o structura so_file.
+	In cazul in care nu s-a putut aloca memorie, returnez NULL.
+	Creez un pipe intre capatul de citire si capatul de scriere,
+	pentru comunicarea intre procesul parinte si procesul copil.
+	In cazul in care apelul pipe intoarce o valoare diferita de 0,
+    eliberez memoria alocata si returnez NULL.
+	Creez procesul copil, folosind fork.
+	Daca apelul functiei fork intoarce -1, inchid capetele
+	pipe-ului, eliberez memoria si returnez NULL.
+    Procesul copil:
+	    In cazul in care type este "r", inchid capatul de citire
+        (capatul nefolosit), creez o copie a file 
+        descriptor-ului capatului de scriere redirectandu-l la STDOUT.
+        In cazul in care type este "w", inchid capatul de scriere
+        (capatul nefolosit), creez o copie a file 
+        descriptor-ului capatului de citire redirectandu-l la STDIN.
+        Execut comanda.
+    Procesul parinte:
+        In cazul in care type este "r", inchid capatul de scriere
+        (capatul nefolosit). Setez fd-ul noii structurii la capatul
+        de citire.
+        In cazul in care type este "w", inchid capatul de citire
+        (capatul nefolosit). Setez fd-ul noii structurii la capatul
+        de scriere.
+	    Aloc memorie pentru buffer-ul din structura.
+	    In cazul in care nu s-a putut aloca memorie, returnez NULL.
+	    Setez campurile structurii create.
+	Intorc structura creata.
+
+so_pclose:
+	Apelez functia so_fflush pentru a scrie ce a mai ramas in buffer.
+	In cazul in care so_fflush intoarce -1, eliberez memoria structurii stream
+	si intorc SO_EOF.
+	Inchid fd-ul asociat structurii.
+	In cazul in care close intoarce -1, eliberez memoria structurii stream
+	si intorc SO_EOF.
+	Astept terminarea procesului.
+	In cazul in care waitpid intoarce -1, eliberez memoria structurii stream
+	si intorc SO_EOF.
+	Eliberez memoria si returnez codul de eroare.
+
+Cum se compileaza ?
+	make (genereaza biblioteca dinamica libso_stdio.so)
+
+Bibliografie:
+	Laboratorul 1 - pentru makefile
+		comenzi pentru generarea bibliotecii dinamice
+	Laboratorul 2 - pentru operatiile I/O 
+		xwrite - task 3 - mcat
+        xread - task 3 - mcat
+	Laboratorul 3 - pentru procese
+		BONUS - Pipe fara nume(Linux) pipe.c
+		
