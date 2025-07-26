@@ -1,0 +1,61 @@
+Urse Adrian Dinu 331CC
+Loader de Executabile Linux
+
+Implementare:
+Intregul enunt al temei este implementat.
+
+Functia so_init_loader:
+    Determin dimensiunea unei pagini, folosind functia getpagesize().
+    Setez handler-ul.
+    Initializez structura sigaction.
+    Apelez functia sigaction pentru a trata semnalele SIGSEGV,
+    folosind handler-ul creat.
+
+Functia sig_handler:
+    Reprezinta rutina care trateaza semnalul SIGSEGV.
+    In cazul in care semnalul nu este SIGSEGV, apelez handler-ul default.
+    Determin adresa care a generat page fault din parametrul siginfo_t *info.
+    Pacurg segmentele si determin din ce segment face parte adresa. Verific
+    daca adresa gasita este intre adresa la care ar trebui incarcat segmentul
+    si adresa la care ar trebui incarcat segmentul + dimensiunea ocupată de
+    segment în memorie.
+    Determin pagina din care face parte adresa.
+    Verific daca pagina a fost mapata.
+        Pagina nu a fost mapata:
+        In acest caz mapez pagina in memorie la adresa corespunzatoare. 
+        Folosind flag-ul MAP_ANONYMOUS, continutul ei
+	    este initializat cu 0.
+        Calculez offset-ul din cadrul fisierului la care incepe pagina.
+        Mut cursorul fisierului la offset-ul calculat.
+        Verific daca pagina gasita este ultima in fisier, 
+		iar adresa ei de start + dimensiunea unei pagini >  dimensiunea segmentului
+        in cadrul fisierului
+		In acest caz, determin cate date sunt pana la file_size.
+
+                             0        4096
+        PAGE0 | PAGE1 | ... |LAST_PAGE
+        |         filesize       |
+        --------------------------
+        Altfel, datasize = pagesize.
+        Citesc datasize octeti in memoria mapata.
+        Setez permisiunile paginii mapate.
+
+        Daca a fost mapata, atunci apelez handler-ul default.
+
+    In cazul in care adresa care a generat seg fault.
+	nu este intr-un segment cunoscut, apelez handler-ul default.
+
+Functia so_execute:
+    Se parseaza executabilul.
+    Deschid executabilul.
+    Initializez campul data al fiecarui segement.
+    Am folosit campul data al segmentelor, pentru
+	a retine paginile mapate.
+
+Cum se compileaza ?
+	make (genereaza biblioteca shared-object libso_loader.so)
+
+Bibliografie:
+	Laboratorul 4 - pentru semnale
+	Laboratorul 6 - pentru memoria virtuala
+    Paginile de manual penru mmap, sigaction.

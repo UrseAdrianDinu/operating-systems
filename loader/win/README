@@ -1,0 +1,59 @@
+Urse Adrian Dinu 331CC
+Loader de Executabile Windows
+
+Implementare:
+Intregul enunt al temei este implementat.
+
+Functia so_init_loader:
+    Setez dimensiunea paginii.
+    Setez handler-ul.
+	
+Functia access_violation:
+    Reprezinta rutina care trateaza semnalul SIGSEGV.
+    Determin adresa care a generat page fault-ul.
+    Pacurg segmentele si determin din ce segment face parte adresa. Verific
+    daca adresa gasita este intre adresa la care ar trebui incarcat segmentul
+    si adresa la care ar trebui incarcat segmentul + dimensiunea ocupata de
+    segment in memorie.
+    Determin pagina din care face parte adresa.
+    Verific daca pagina a fost mapata.
+        Pagina nu a fost mapata:
+        In acest caz mapez pagina in memorie la adresa corespunzatoare. 
+        Calculez offset-ul din cadrul fisierului la care incepe pagina.
+        Mut cursorul fisierului la offset-ul calculat.
+        Verific daca pagina gasita este ultima in fisier, 
+		iar adresa ei de start + dimensiunea unei pagini >  dimensiunea fisierului
+		In acest caz, determin cate date sunt pana la file_size.
+
+                             0        4096
+        PAGE0 | PAGE1 | ... |LAST_PAGE
+        |         filesize       |
+        --------------------------
+    
+        Altfel, datasize = pagesize.
+        Citesc datasize octeti in memoria mapata.
+		In cazul in care pagina depaseste file_size,
+		zeroizez diferenta intre spatiul din memorie si spatiul din fisier
+		Determin permisiunile segmentului.
+        Setez permisiunile paginii mapate.
+
+        Daca a fost mapata, atunci returnez EXCEPTION_CONTINUE_SEARCH.
+
+    In cazul in care adresa care a generat seg fault.
+	nu este intr-un segment cunoscut, returnez EXCEPTION_CONTINUE_SEARCH.
+
+Functia so_execute:
+    Se parseaza executabilul.
+    Deschid executabilul.
+    Initializez campul data al fiecarui segement.
+    Am folosit campul data al segmentelor, pentru
+	a retine paginile mapate.
+
+Cum se compileaza ?
+	nmake (genereaza biblioteca dinamica so_loader.d;;)
+
+Bibliografie:
+	Laboratorul 4 - pentru semnale
+	Laboratorul 6 - pentru memoria virtuala
+	https://docs.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-virtualalloc
+	https://docs.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-virtualprotect
