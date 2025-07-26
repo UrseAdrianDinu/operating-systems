@@ -1,0 +1,80 @@
+Urse Adrian Dinu 331CC
+
+Organizare:
+    Am implementat o structura de date de tip HashMap, pentru 
+    a stoca definitiile (facute cu define). Hashmap-ul contine un
+    vector de liste inlantuite, unde fiecare nod din lista reprezinta o
+    intrare de tipul <key, value> (<char*, char*>). Indexul unei liste
+    reprezinta hash-ul cheii. Implementare Hashmap-ului este in fisierele
+    hashmap.c si hashmap.h.
+
+    Pentru a retine directoarele date ca parametru (-I dir), am implementat
+    o structura de date de tip coada. Am folosit aceasta structura de date,
+    pentru a pastra ordinea argumentelor (FIFO). Implementarea cozii este in
+    fisierele queue.c si queue.h.
+
+Implementare:
+
+    Am implementat intregul enunt al temei.
+
+    Functia deffunc:
+        Trateaza o linie de tipul #define <SYMBOL> <MAPPING>
+        Adauga in hashmap intrarea <SYMBOL>=<MAPPING>
+        Inlocuieste in MAPPING, simbolurile care au fost definite anterior
+
+    Functia readFile:      
+        Am definit un vector if_cond si nivelul de imbricare depth.
+        De fiecare data cand intalnesc un if/ifdef/ifndef/elif incrementez depth. Iar in functie de if_cond[depth] procesez sau nu linia curenta.
+
+        Citeste linie cu linie fisierul de intrare. 
+        Analizeaza fiecare linie.
+            #define  - se apeleaza functia deffunc
+            #undef   - se sterge intrarea din hashmap
+            #if COND - verific conditia, incrementez depth
+                       setez if_cond[depth]
+            #endif   - decrementez depth
+            #else    - verific conditia din if
+                       daca e adevarata setez if_cond[depth] la 0
+                       altfel if_cond[depth] = 1
+            #ifdef   - incrementez depth
+                     - verific daca hashmapul contine cheia, 
+                       in acest caz if_cond[depth] = 1
+                       altfel if_cond[depth] = 0
+            
+            #ifndef  - incrementez depth
+                     - verific daca hashmapul nu contine cheia, 
+                       in acest caz if_cond[depth] = 1
+                       altfel if_cond[depth] = 0
+            
+            #include - caut header-ul in directorul 
+                       fisierului de input sau in directorul curent
+                       Daca nu a fost gasit il caut in directoarele date ca argument.
+                       Daca a fost gasit, se reapeleaza functia readFile, urmand sa analizeze header-ul.
+
+        Afiseaza linia procesata in fisierul de iesire(daca este cazul).
+
+    Functia main:
+        Initializez hashmap-ul si coada.
+        Parcurg argumentele. Adaug intrari in hashmap pentru
+        argumentele de tip -D. Adaug directoarele in coada pentru  argumentele de tip -I. Verific daca argumentele sunt corecte.
+
+        Apelez functia readFile pentru fisierele de intrare si iesire date ca argumente.
+
+        In final inchid fisierele si eliberez memoria.
+
+    O functionalitate extra care nu este in cerinta temei, dar este verificata
+    in teste, este directiva #undef <SYMBOL>.
+
+Compilare si rulare:
+    Linux:
+        make
+        ./so-cpp [-D <SYMBOL>[=<MAPPING>]] [-I <DIR>] [<INFILE>] [ [-o] <OUTFILE>]
+    Windows:
+        nmake
+        /so-cpp.exe [-D <SYMBOL>[=<MAPPING>]] [-I <DIR>] [<INFILE>] [ [-o] <OUTFILE>]
+    
+
+
+
+
+    
